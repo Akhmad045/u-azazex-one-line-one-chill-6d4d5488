@@ -36,7 +36,24 @@ def validate(text):
         raise ValueError("entry has leading or trailing whitespace")
     if "\n" in text or "\r" in text:
         raise ValueError("entry must be a single line")
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in text):
+        raise ValueError("entry must not contain control characters")
     return text
+
+
+def write_entry(out_path, data):
+    """Write the entry bytes with no trailing newline, then read back
+    and confirm the file is byte-for-byte the entry."""
+    parent = os.path.dirname(out_path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(out_path, "wb") as fh:
+        fh.write(data)  # no trailing newline: the file is exactly the line
+    with open(out_path, "rb") as fh:
+        roundtrip = fh.read()
+    if roundtrip != data:
+        raise SystemExit("round-trip mismatch: file does not match entry")
+    return len(data)
 
 
 def self_test():
@@ -49,6 +66,8 @@ def self_test():
         ("trailing ", "trailing whitespace"),
         (" leading", "leading whitespace"),
         (" padded ", "padded both ends"),
+        ("a\x07b", "control character"),
+        ("a\x7fb", "delete character"),
     ]
     for text, label in cases:
         try:
@@ -78,15 +97,7 @@ def main():
     out_path = os.environ.get("ENTRY_OUTPUT", "/output/entry.txt")
     text = validate(ENTRY)
     data = text.encode("utf-8")
-    parent = os.path.dirname(out_path)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-    with open(out_path, "wb") as fh:
-        fh.write(data)  # no trailing newline: the file is exactly the line
-    with open(out_path, "rb") as fh:
-        roundtrip = fh.read()
-    if roundtrip != data:
-        raise SystemExit("round-trip mismatch: file does not match entry")
+    write_entry(out_path, data)
     print(f"wrote {out_path}: {len(text)} chars, "
           f"sha256 {hashlib.sha256(data).hexdigest()}")
     return 0
