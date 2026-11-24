@@ -56,6 +56,19 @@ def write_entry(out_path, data):
     return len(data)
 
 
+def verify():
+    """Read the written entry back from disk and validate it
+    against the gate, without writing anything."""
+    out_path = os.environ.get("ENTRY_OUTPUT", "/output/entry.txt")
+    with open(out_path, "rb") as fh:
+        data = fh.read()
+    text = data.decode("utf-8")
+    validate(text)
+    print(f"verified {out_path}: {len(text)} chars, "
+          f"sha256 {hashlib.sha256(data).hexdigest()}")
+    return 0
+
+
 def self_test():
     """Exercise validate() against the gate's rejection cases."""
     cases = [
@@ -91,8 +104,10 @@ def self_test():
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
         return self_test()
+    if len(sys.argv) > 1 and sys.argv[1] == "--verify":
+        return verify()
     if len(sys.argv) > 1:
-        print("usage: main.py [--self-test]", file=sys.stderr)
+        print("usage: main.py [--self-test | --verify]", file=sys.stderr)
         return 2
     out_path = os.environ.get("ENTRY_OUTPUT", "/output/entry.txt")
     text = validate(ENTRY)
